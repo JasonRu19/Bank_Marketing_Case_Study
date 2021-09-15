@@ -1,0 +1,91 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(MASS)
+library(car)
+
+bank <- read.csv("C:/Users/moonw/Documents/UTSA MSDA Graduate Program/3_Year 2/Fall 2021/DA 6813/Case Studies/1_Bank_Marketing_Case_Study/bank-additional.csv", sep = ";")
+
+bank
+```
+
+```{r}
+bank = na.omit(bank)
+
+str(bank)
+```
+
+```{r}
+
+bank$jobF = factor(bank$job)
+bank$maritalF = factor(bank$marital)
+bank$educationF = factor(bank$education)
+bank$defaultF = factor(bank$default)
+bank$housingF = factor(bank$housing)
+bank$loanF = factor(bank$loan)
+bank$contactF = factor(bank$contact)
+bank$monthF = factor(bank$month)
+bank$day_of_weekF = factor(bank$day_of_week)
+bank$poutcomeF = factor(bank$poutcome)
+
+bank$ydummy = ifelse(bank$y == "no",1,0)
+
+str(bank)
+```
+
+```{r}
+
+m1 = glm(bank$ydummy ~ age + jobF + maritalF + educationF + defaultF +housingF + loanF + contactF + monthF + day_of_weekF + duration + campaign + pdays + factor(previous) + poutcomeF + emp.var.rate+ cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data = bank, family = binomial, control = list(maxit = 50))
+
+
+bank$PredProb = predict.glm(m1, type = "response")
+ 
+# Since these are probabilities, we can convert them to binary simply by an ifelse statement. 
+
+bank$PredChoice = ifelse(bank$PredProb>=.5,1,0)
+
+caret::confusionMatrix(as.factor(bank$ydummy), as.factor(bank$PredChoice))
+
+```
+
+```{r}
+
+set.seed(1)
+row.number = sample(1:nrow(bank), 0.8*nrow(bank))
+banktrain = bank[row.number,]
+banktest = bank[-row.number,]
+
+banktrain$ydummy = ifelse(banktrain$y == "no",1,0)
+banktest$ydummy = ifelse(banktest$y == "no",1,0)
+
+```
+
+```{r}
+lda.model = lda(banktrain$ydummy ~ age + jobF + maritalF + educationF + defaultF +housingF + loanF + contactF + monthF + day_of_weekF + duration + campaign + pdays + previous + poutcomeF + emp.var.rate+ cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data = banktrain)
+
+```
+
+
+```{r}
+
+predictions.lda = predict(lda.model, banktest)
+
+caret::confusionMatrix(as.factor(predictions.lda$class), as.factor(banktest$ydummy))
+
+```
+
+```{r}
+
+precictions.log = predict(m1, newdata = banktest, type = "response")
+
+
+predictions.log.y = ifelse(precictions.log>=.5,1,0)
+
+caret::confusionMatrix(as.factor(predictions.log.y), as.factor(banktest$ydummy))
+
+```
+
