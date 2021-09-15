@@ -1,0 +1,61 @@
+---
+title: "Bank Marketing Case Study"
+author: "Brandon Van Wagner"
+date: "9/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(caret)
+library(e1071)
+library(readr)
+library(PerformanceAnalytics)
+library(car)
+```
+
+```{r}
+bank <- read.csv("bank-additional.csv", header = TRUE, sep = ";")
+str(bank)
+```
+
+```{r}
+summary(bank)
+```
+```{r}
+bank$y <- as.factor(bank$y)
+```
+
+```{r}
+head(bank)
+```
+
+```{r}
+set.seed(2)
+index <- createDataPartition(y = bank$y, p = 0.8, list = F)
+train <- bank[index, ]
+test <- bank[-index, ]
+train.Control <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+```
+
+```{r}
+set.seed(27)
+knn_classifier <- train(y ~ ., data = train, method = 'knn',
+             trControl = train.Control, tuneLength = 20)
+knn_classifier
+```
+
+```{r}
+knn_predictions <- predict(knn_classifier, newdata = test)
+confusionMatrix(knn_predictions, test$y)
+```
+
+```{r}
+Accuracy_KNN = ((716+43)/(716+47+47+17))
+Accuracy_KNN
+```
+
