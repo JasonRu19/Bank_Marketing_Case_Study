@@ -1,0 +1,143 @@
+---
+title: "Bank Marketing Case Study"
+author: "Michael Stephens"
+date: "9/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ISLR)
+library(randomForest)
+library(dplyr)
+library(caret)
+library(e1071)
+library(sqldf)
+```
+
+```{r}
+data = read.csv("C:\\Users\\micha\\Dropbox\\MSDA\\Fall 2021\\Applications\\Bank Case Study\\bank-additional.csv", sep=";")
+data = data[data$education != 'illiterate', ]
+data = data[data$default != 'yes', ]
+```
+
+```{r}
+set.seed(42)
+
+split = round(nrow(data) * 0.8)
+
+train = data[1:split, ]
+test = data[(split + 1):nrow(data), ]
+train
+test
+```
+
+
+```{r}
+trControl = trainControl(method = "cv",
+    number = 10,
+    search = "grid")
+
+# Run the model
+rf_default <- train(y~.,
+    data = train,
+    method = "rf",
+    metric = "Accuracy",
+    trControl = trControl)
+# Print the results
+print(rf_default)
+best_mtry = 26
+```
+
+```{r}
+store_maxnode <- list()
+tuneGrid <- expand.grid(.mtry = best_mtry)
+for (maxnodes in c(5: 15)) {
+    rf_maxnode <- train(y~.,
+        data = train,
+        method = "rf",
+        metric = "Accuracy",
+        trControl = trControl,
+        importance = TRUE,
+        nodesize = 14,
+        maxnodes = maxnodes,
+        ntree = 300)
+    current_iteration <- toString(maxnodes)
+    store_maxnode[[current_iteration]] <- rf_maxnode
+}
+results_mtry <- resamples(store_maxnode)
+summary(results_mtry)
+```
+
+```{r}
+store_maxnode <- list()
+tuneGrid <- expand.grid(.mtry = best_mtry)
+for (maxnodes in c(20: 30)) {
+    rf_maxnode <- train(y ~.,
+        data = train,
+        method = "rf",
+        metric = "Accuracy",
+        trControl = trControl,
+        importance = TRUE,
+        nodesize = 14,
+        maxnodes = maxnodes,
+        ntree = 300)
+    key <- toString(maxnodes)
+    store_maxnode[[key]] <- rf_maxnode
+}
+results_node <- resamples(store_maxnode)
+summary(results_node)
+```
+
+```{r}
+store_maxtrees <- list()
+for (ntree in c(250, 300, 350, 400, 450, 500, 550, 600, 800, 1000, 2000)) {
+    rf_maxtrees <- train(y ~.,
+        data = train,
+        method = "rf",
+        metric = "Accuracy",
+        trControl = trControl,
+        importance = TRUE,
+        nodesize = 14,
+        maxnodes = 24,
+        ntree = ntree)
+    key <- toString(ntree)
+    store_maxtrees[[key]] <- rf_maxtrees
+}
+results_tree <- resamples(store_maxtrees)
+summary(results_tree)
+```
+
+
+```{r}
+fit_rf = train(y~.,
+    train,
+    method = "rf",
+    metric = "Accuracy",
+    trControl = trControl,
+    importance = TRUE,
+    nodesize = 14,
+    ntree = 250,
+    maxnodes = 24)
+```
+
+
+```{r}
+prediction = predict(fit_rf, test)
+confusionMatrix(prediction, as.factor(test$y))
+```
+
+
+
+```{r}
+unique = unique(data)
+distinct(data)
+sqldf("select y, count(1) from data group by y")
+```
+
+
+
+
+
+
+
