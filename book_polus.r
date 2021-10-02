@@ -11,6 +11,10 @@ str(book)
 head(book)
 anyNA(book)
 
+# removing observation, as it is not needed
+book <- select(book, -Observation)
+book_test <- select(book_test, -Observation)
+
 set.seed(200)
 book$Gender <- factor(book$Gender)
 book_test$Gender <- factor(book_test$Gender)
@@ -29,7 +33,7 @@ lmpreds <- predict.lm(m1, newdata = book_test, type = 'response')
 difference <- c()
 for(i in x) {
   book.preds.lm <- ifelse(lmpreds >= i, 1, 0)
-  confusionMatrix <- caret::confusionMatrix(as.factor(book_test$Choice), as.factor(book.preds.lm), positive = "1")
+  confusionMatrix <- caret::confusionMatrix(as.factor(book.preds.lm), as.factor(book_test$Choice), positive = "1")
   diff <- abs(confusionMatrix$byClass['Sensitivity']-confusionMatrix$byClass['Specificity'])
   if (is.numeric(diff)) {
     difference <- append(difference, diff)
@@ -40,7 +44,10 @@ min(difference)
 which.min(difference)
 
 book.preds.lm <- ifelse(lmpreds >= which.min(difference)/100, 1, 0)
-caret::confusionMatrix(as.factor(book_test$Choice), as.factor(book.preds.lm))
+caret::confusionMatrix(as.factor(book.preds.lm), as.factor(book_test$Choice), positive = "1")
+
+# variable importance
+caret::varImp(m1)
 
 #Check for influential variables, only highlighting 2
 plot(m1, which = 4, id.n = 2) # cook's distance
@@ -76,8 +83,26 @@ summary(m2)
 
 logitpreds <- predict.glm(m2, newdata = book_test, type = 'response')
 
-book.preds.logit <- ifelse(logitpreds >= 0.5, 1, 0)
-caret::confusionMatrix(as.factor(book_test$Choice), as.factor(book.preds.logit))
+# Minimizing difference between sensitivity and specificity
+difference <- c()
+for(i in x) {
+  book.preds.glm <- ifelse(logitpreds >= i, 1, 0)
+  tried <- try(confusionMatrix <- caret::confusionMatrix(as.factor(book.preds.glm), as.factor(book_test$Choice), positive = "1"))
+  if(class(tried) == "try-error") next;
+  diff <- abs(confusionMatrix$byClass['Sensitivity']-confusionMatrix$byClass['Specificity'])
+  if (is.numeric(diff)) {
+    difference <- append(difference, diff)
+  }
+}
+
+min(difference)
+which.min(difference)
+
+book.preds.glm <- ifelse(logitpreds >= which.min(difference)/100, 1, 0)
+caret::confusionMatrix(as.factor(book.preds.glm), as.factor(book_test$Choice), positive = "1")
+
+# variable importance
+caret::varImp(m2)
 
 #Check for influential variables, only highlighting 2
 plot(m2, which = 4, id.n = 2) # cook's distance
@@ -117,12 +142,11 @@ m3 <- svm(formula = form1, data = book, gamma = tuned$best.parameters$gamma, cos
 summary(m3)
 
 svmpred <- predict(m3, book_test, type = "response")
-table(pred = svmpred, true = book_test$Choice)
 
 difference <- c()
 for(i in x) {
   book.preds.svm <- ifelse(svmpred >= i, 1, 0)
-  confusionMatrix <- caret::confusionMatrix(as.factor(book_test$Choice), as.factor(book.preds.svm), positive = "1")
+  confusionMatrix <- caret::confusionMatrix(as.factor(book.preds.svm), as.factor(book_test$Choice), positive = "1")
   diff <- abs(confusionMatrix$byClass['Sensitivity']-confusionMatrix$byClass['Specificity'])
   if (is.numeric(diff)) {
     difference <- append(difference, diff)
@@ -133,7 +157,7 @@ min(difference)
 which.min(difference)
 
 book.preds.svm <- ifelse(svmpred >= which.min(difference)/100, 1, 0)
-caret::confusionMatrix(as.factor(book_test$Choice), as.factor(book.preds.svm))
+caret::confusionMatrix(as.factor(book.preds.svm), as.factor(book_test$Choice), positive = "1")
 
 #Check for influential variables, only highlighting 2
 plot(m3, which = 4, id.n = 2) # cook's distance
@@ -153,4 +177,9 @@ perf <- performance(pred, "tpr","fpr")
 plot(perf,colorize = T, main = "SVM ROC Curve")
 text(0.5,0.5, paste("AUC:", auc))
 
+# Factor weights
+weight <- t(m3$coefs) %*% m3$SV
+weight <- apply(weight, 2, function(v){sqrt(sum(v^2))})
+weight <- sort(weight, decreasing = TRUE)
+print(weight)
 
